@@ -1,2 +1,6 @@
-#!/usr/bin/env bash
-uvicorn main:app --host 0.0.0.0 --port 10000
+#!/bin/bash
+echo "🚀 Installing Playwright browsers..."
+npx playwright install
+
+echo "🚀 Starting FastAPI app..."
+uvicorn main:app --host 0.0.0.0 --port $PORT
