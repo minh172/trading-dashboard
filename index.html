@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tin tức & Thị trường</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#f5f6f7] font-sans text-gray-800">
+
+<header class="sticky top-0 bg-white shadow flex justify-between items-center p-4 z-50">
+  <h1 class="text-2xl font-bold text-gray-800">Tin tức & Thị trường</h1>
+  <div id="clock" class="text-sm font-medium text-gray-600">--:--:--</div>
+</header>
+
+<main class="grid grid-cols-1 lg:grid-cols-4 gap-6 p-4 max-w-7xl mx-auto">
+  <!-- Tin tức -->
+  <section class="lg:col-span-2 bg-white rounded-3xl shadow p-6">
+    <h2 class="text-xl font-semibold mb-4">Tin mới nhất</h2>
+    <div id="loader-news" class="hidden text-center my-4">Đang tải dữ liệu...</div>
+    <div id="news-container" class="space-y-3"></div>
+    <div id="pagination" class="flex justify-between items-center mt-4">
+      <button onclick="prevPage()" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">«</button>
+      <span id="page-info" class="text-sm font-medium"></span>
+      <button onclick="nextPage()" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">»</button>
+    </div>
+  </section>
+
+  <section class="lg:col-span-1 flex flex-col gap-6">
+    <div class="bg-white rounded-3xl shadow p-4">
+      <h2 class="text-xl font-semibold">Lịch Forex</h2>
+      <div class="overflow-x-auto"></div>
+      <div class="mt-4 rounded-xl overflow-hidden border shadow bg-white">
+        <iframe src="https://widget.myfxbook.com/widget/calendar.html?lang=en&impacts=2,3&symbols=EUR,GBP,JPY,USD" style="border: 0; width: 100%; height: 480px;"></iframe>
+        <div class="text-center text-xs text-gray-500 py-2">
+          <a href="https://www.myfxbook.com/forex-economic-calendar" target="_blank" rel="noopener" class="hover:underline">Economic Calendar by Myfxbook.com</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-3xl shadow p-4">
+      <h2 class="text-xl font-semibold">Chỉ số thị trường</h2>
+      <table class="w-full text-sm mt-2">
+        <thead class="bg-gray-200"><tr><th>Mã</th><th>Giá</th><th>Thay đổi</th></tr></thead>
+        <tbody id="market-indices"></tbody>
+      </table>
+      <div class="mt-4 rounded-xl overflow-hidden border shadow bg-white">
+        <iframe src="https://widget.myfxbook.com/widget/market-quotes.html?symbols=EURUSD,GBPJPY,USDJPY,XAUUSD" style="border:0;width:100%;height:400px;"></iframe>
+        <div class="text-center text-xs text-gray-500 py-2">
+          <a href="https://www.myfxbook.com/forex-market/currencies" target="_blank" rel="noopener" class="hover:underline">Forex Rates by Myfxbook.com</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lg:col-span-1 flex flex-col gap-6">
+    <div class="bg-white rounded-3xl shadow p-4">
+      <h2 class="text-lg font-semibold text-black-600">Giá vàng BTMC</h2>
+      <div id="gold-vn" class="space-y-2 text-sm text-gray-800">Đang tải dữ liệu...</div>
+    </div>
+
+	<div class="bg-white rounded-3xl shadow p-4">
+	  <h2 class="text-lg font-semibold text-green-600">Tỷ giá Vietcombank</h2>
+	  <div id="vcb-rates-table" class="overflow-x-auto">
+		<table class="w-full text-sm mt-2 border">
+		  <thead class="bg-gray-200">
+			<tr>
+			  <th class="px-2 py-2 text-left">Mã</th>
+			  <th class="px-2 py-2 text-center text-green-600 font-semibold">Mua</th>
+			  <th class="px-2 py-2 text-center text-orange-600 font-semibold">Chuyển khoản</th>
+			  <th class="px-2 py-2 text-center text-red-600 font-semibold">Bán</th>
+			</tr>
+		  </thead>
+		  <tbody id="vcb-rates-body" class="divide-y divide-gray-200"></tbody>
+		</table>
+	  </div>
+	</div>
+
+    <div class="bg-white rounded-3xl shadow p-4">
+      <h2 class="text-lg font-semibold text-black-600">Bảng giá xăng dầu</h2>
+      <div id="gasoline-prices" class="space-y-2 text-sm text-gray-800"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+
+let currentPage = 1;
+let totalPages = 1;
+
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById("clock").textContent = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+async function loadNews(page = 1) {
+
+  const loader = document.getElementById("loader-news");
+  loader.classList.remove("hidden");
+  try {
+    const res = await fetch("http://localhost:8000/news?page=" + page);
+    const data = await res.json();
+    const container = document.getElementById("news-container");
+    const pageInfo = document.getElementById("page-info");
+    container.innerHTML = "";
+
+    const grouped = {};
+    data.latest_news.forEach(item => {
+      const date = new Date(item.published_time).toLocaleDateString("vi-VN");
+      grouped[date] = grouped[date] || [];
+      grouped[date].push(item);
+    });
+
+    Object.keys(grouped).forEach(date => {
+      grouped[date].sort((a, b) => new Date(b.published_time) - new Date(a.published_time));
+    });
+
+    const today = new Date().toLocaleDateString("vi-VN");
+    const sortedDates = Object.keys(grouped).sort((a, b) => a === today ? -1 : b === today ? 1 : new Date(b) - new Date(a));
+
+    sortedDates.forEach(date => {
+      const dateDiv = document.createElement("div");
+      dateDiv.className = "text-base font-bold text-blue-800 border-b border-gray-300 py-1 mt-4";
+      dateDiv.textContent = `📅 ${date}`;
+      container.appendChild(dateDiv);
+
+      grouped[date].forEach(item => {
+        const timeObj = new Date(item.published_time);
+        const time = timeObj.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+        const isNew = (new Date() - timeObj) < (2 * 60 * 60 * 1000);
+        const div = document.createElement("div");
+        div.className = "bg-gray-50 rounded-md p-3 shadow-sm hover:shadow transition text-xs text-gray-800";
+        div.innerHTML = `
+          <div class="flex items-center gap-2">
+            <div class="text-sm font-bold text-gray-700">${time}</div>
+            ${isNew ? '<span class="text-red-500 text-xs font-semibold">Mới</span>' : ''}
+          </div>
+          <a href="${item.link}" target="_blank" class="block text-xs font-medium text-black hover:underline mt-1">${item.title}</a>
+          ${item.summary ? `<p class="text-xs text-gray-600 mt-1">${item.summary}</p>` : ""}
+        `;
+        container.appendChild(div);
+      });
+    });
+
+    totalPages = data.total_pages;
+	currentPage = data.page;
+
+    pageInfo.textContent = `Trang ${data.page} / ${totalPages}`;
+    document.querySelector("#pagination button:first-child").disabled = data.page === 1;
+    document.querySelector("#pagination button:last-child").disabled = data.page === totalPages;
+  } catch (err) {
+    console.error("Lỗi tin tức:", err);
+  } finally {
+    loader.classList.add("hidden");
+  }
+}
+
+
+async function loadGoldData() {
+  const container = document.getElementById("gold-vn");
+  container.innerHTML = `
+    <table class="w-full text-sm mt-2 border">
+      <thead class="bg-yellow-100">
+        <tr>
+          <th class="px-2 py-2 text-left">Sản phẩm</th>
+          <th class="px-2 py-2 text-center text-green-600 font-semibold">Mua</th>
+          <th class="px-2 py-2 text-center text-red-600 font-semibold">Bán</th>
+        </tr>
+      </thead>
+      <tbody id="gold-table-body" class="divide-y divide-gray-200"></tbody>
+    </table>
+  `;
+  const tbody = document.getElementById("gold-table-body");
+  try {
+    const res = await fetch("http://localhost:8000/btmc-gold");
+    const data = await res.json();
+    data.data.forEach(item => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td class="px-2 py-2 font-medium">${item.product_name} (${item.purity})</td>
+        <td class="px-2 py-2 text-center text-green-600 font-semibold">${item.buy_price}</td>
+        <td class="px-2 py-2 text-center text-red-600 font-semibold">${item.sell_price}</td>
+      `;
+      tbody.appendChild(row);
+    });
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="3" class="text-center py-2 text-red-600">Không thể tải dữ liệu.</td></tr>';
+    console.error("Lỗi khi tải giá vàng:", err);
+  }
+}
+
+
+async function loadVCBRates() {
+  const tbody = document.getElementById("vcb-rates-body");
+  tbody.innerHTML = "";
+  try {
+    const res = await fetch("http://localhost:8000/exchange-rates");
+    const data = await res.json();
+    const filtered = data.data.filter(item => ["USD", "EUR", "GBP", "JPY"].includes(item.currency_code.toUpperCase()));
+    filtered.forEach(item => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td class="px-2 py-2 font-medium">${item.currency_code}</td>
+        <td class="px-2 py-2 text-center text-green-600 font-semibold">${item.buy_price}</td>
+        <td class="px-2 py-2 text-center text-orange-600 font-semibold">${item.transfer_price}</td>
+        <td class="px-2 py-2 text-center text-red-600 font-semibold">${item.sell_price}</td>
+      `;
+      tbody.appendChild(row);
+    });
+  } catch (err) {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td colspan="4" class="text-center py-2 text-red-600">Không thể tải dữ liệu tỷ giá.</td>`;
+    tbody.appendChild(row);
+    console.error("Lỗi khi tải tỷ giá:", err);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadVCBRates();
+  setInterval(loadVCBRates, 3600000); // Cập nhật mỗi giờ
+});
+
+function prevPage(){ if(currentPage>1) loadNews(currentPage-1);}
+function nextPage(){ if(currentPage<totalPages) loadNews(currentPage+1);}
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadNews();
+  loadGoldData();
+  loadVCBRates();
+  setInterval(loadGoldData, 600000);
+  setInterval(loadVCBRates, 3600000);
+});
+</script>
+
+</body>
+</html>
